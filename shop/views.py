@@ -5,8 +5,10 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Category, Product, Review
 from .serializers import (CategorySerializer, CategoryDetailSerializer,
-                          ProductSerializer, ProductDetailSerializer, ReviewSerializer, ReviewDetailSerializer
+                          ProductSerializer, ProductDetailSerializer, ReviewSerializer, ReviewDetailSerializer,
+                          CategoryValidateSerializer, ProductValidateSerializer, ReviewValidateSerializer
                           )
+from django.db import transaction
 
 @api_view(['GET', 'PUT', 'DELETE'])
 def category_detail_api_view(request,id):
@@ -18,7 +20,10 @@ def category_detail_api_view(request,id):
         data = CategorySerializer(category).data
         return Response(data=data)
     elif request.method == 'PUT':
-        category.name = request.data.get('name')
+        serializer = CategoryValidateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        category.name = serializer.validated_data.get('name')
         category.save()
         return Response(status=status.HTTP_201_CREATED,
                         data=CategoryDetailSerializer(category).data)
@@ -34,9 +39,16 @@ def category_list_create_api_view(request):
         data = CategorySerializer(shop, many=True).data
         return Response(data=data)
     else:
-        name = request.data.get('name')
+        serializer = CategoryValidateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(status=status.HTTP_400_BAD_REQUEST,
+                            data=serializer.errors)
 
-        category = Category.objects.create(name=name)
+        name = serializer.validated_data.get('name')
+
+        with transaction.atomic():
+            category = Category.objects.create(
+                name=name)
         category.save()
         return Response(status=status.HTTP_201_CREATED,
                         data=CategoryDetailSerializer.data)
@@ -52,10 +64,13 @@ def product_detail_api_view(request,id):
         data = ProductSerializer(product).data
         return Response(data=data)
     elif request.method == 'PUT':
-        product.title = request.data.get('title')
-        product.description = request.data.get('description')
-        product.price = request.data.get('price')
-        product.categories.set(request.data.get('categories'))
+        serializer = ProductValidateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        product.title = serializer.validated_data.get('title')
+        product.description = serializer.validated_data.get('description')
+        product.price = serializer.validated_data.get('price')
+        product.categories.set(serializer.validated_data.get('categories'))
         product.save()
         return Response(status=status.HTTP_201_CREATED,
                         data=CategoryDetailSerializer(product).data)
@@ -70,12 +85,21 @@ def product_list_create_api_view(request):
         data = ProductSerializer(shop, many=True).data
         return Response(data=data)
     else:
-        title = request.data.get('title')
-        description = request.data.get('description')
-        price = request.data.get('price')
-        categories = request.data.get('categories')
+        serializer = ProductValidateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(status=status.HTTP_400_BAD_REQUEST,
+                            data=serializer.errors)
 
-        product = Product.objects.create(title=title, description=description, price=price)
+        title = serializer.validated_data.get('title')
+        description = serializer.validated_data.get('description')
+        price = serializer.validated_data.get('price')
+        categories = serializer.validated_data.get('categories')
+
+        with transaction.atomic():
+            product = Product.objects.create(
+                title=title,
+                description=description,
+                price=price)
         product.categories.set(categories)
         product.save()
         return Response(status=status.HTTP_201_CREATED,
@@ -91,9 +115,12 @@ def review_detail_api_view(request,id):
         data = ReviewSerializer(review).data
         return Response(data=data)
     elif request.method == 'PUT':
-        review.text = request.data.get('text')
-        review.product = request.data.get('product')
-        review.stars = request.data.get('stars')
+        serializer = ReviewValidateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        review.text = serializer.validated_data.get('text')
+        review.product_id = serializer.validated_data.get('product_id')
+        review.stars = serializer.validated_data.get('stars')
         review.save()
         return Response(status=status.HTTP_201_CREATED,
                         data=CategoryDetailSerializer(review).data)
@@ -109,11 +136,20 @@ def review_list_create_api_view(request):
         data = ReviewSerializer(shop, many=True).data
         return Response(data=data)
     else:
-        text = request.data.get('text')
-        product = request.data.get('product')
-        stars = request.data.get('stars')
+        serializer = ReviewValidateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(status=status.HTTP_400_BAD_REQUEST,
+                            data=serializer.errors)
 
-        review = Review.objects.create(text=text, product=product, stars=stars)
+        text = serializer.validated_data.get('text')
+        product_id = serializer.validated_data.get('product_id')
+        stars = serializer.validated_data.get('stars')
+
+        with transaction.atomic():
+            review = Review.objects.create(
+                text=text,
+                product_id=product_id,
+                stars=stars)
         review.save()
         return Response(status=status.HTTP_201_CREATED,
                         data=ReviewDetailSerializer.data)
