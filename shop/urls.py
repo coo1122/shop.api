@@ -1,5 +1,6 @@
 from django.urls import path
 from shop import views
+from utils.constans import LIST_CREATE, RETRIEVE_UPDATE_DESTROY
 
 urlpatterns = [
     path('api/v1/categories/', views.category_list_create_api_view),
